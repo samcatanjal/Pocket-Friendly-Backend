@@ -26,7 +26,7 @@ router.get('/userdata', authMiddleware, async (req, res) => {
 });
 
 // Add a transaction
-router.post('/transaction', authMiddleware, async (req, res) => {
+router.post('/transactions', authMiddleware, async (req, res) => {
   const { description, amount, type } = req.body;
   try {
     const newTransaction = new Transaction({ userId: req.userId, description, amount, type });
