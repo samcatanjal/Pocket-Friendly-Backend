@@ -1,45 +1,52 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const Transaction = require('../models/Transaction');
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
-const authMiddleware = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) return res.status(401).json({ message: 'No token provided' });
-
-  const token = authHeader.replace('Bearer ', '');
-
+function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.sendStatus(401);
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET); // Make sure JWT_SECRET is defined
-    req.userId = decoded.id;
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = payload.userId;
     next();
-  } catch (err) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
+  } catch {
+    res.sendStatus(403);
   }
-};
+}
 
-// Get user transactions
-router.get('/userdata', authMiddleware, async (req, res) => {
-  try {
-    const transactions = await Transaction.find({ userId: req.userId });
-    res.json({ transactions });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
+// Get user data
+router.get("/user", authMiddleware, async (req, res) => {
+  const user = await User.findById(req.userId);
+  res.json({
+    email: user.email,
+    currency: user.currency,
+    transactions: user.transactions,
+  });
 });
 
-// Add a transaction
-router.post('/transactions', authMiddleware, async (req, res) => {
+// Update currency
+router.put("/currency", authMiddleware, async (req, res) => {
+  const { currency } = req.body;
+  await User.findByIdAndUpdate(req.userId, { currency });
+  res.json({ message: "Currency updated" });
+});
+
+// Add transaction
+router.post("/add", authMiddleware, async (req, res) => {
   const { description, amount, type } = req.body;
-  try {
-    const newTransaction = new Transaction({ userId: req.userId, description, amount, type });
-    await newTransaction.save();
-    res.status(201).json(newTransaction);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
+  const user = await User.findById(req.userId);
+  user.transactions.push({ description, amount, type });
+  await user.save();
+  res.json(user.transactions);
+});
+
+// Delete transaction
+router.delete("/delete/:id", authMiddleware, async (req, res) => {
+  const user = await User.findById(req.userId);
+  user.transactions.id(req.params.id).remove();
+  await user.save();
+  res.json(user.transactions);
 });
 
 module.exports = router;
