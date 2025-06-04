@@ -1,17 +1,17 @@
-const mongoose = require("mongoose");
 
-const transactionSchema = new mongoose.Schema({
-  description: String,
-  amount: Number,
-  type: { type: String, enum: ["income", "expense"] },
-  createdAt: { type: Date, default: Date.now },
-});
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
+const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  currency: { type: String, default: "$" },
-  transactions: [transactionSchema],
+  currency: { type: String, default: '$' },
 });
 
-module.exports = mongoose.model("User", userSchema);
+// Hash password before saving
+UserSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
+  this.password = await bcrypt.hash(this.password, 10);
+});
+
+module.exports = mongoose.model('User', UserSchema);
