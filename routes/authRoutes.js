@@ -1,41 +1,36 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User'); // Adjust path
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const User = require('../models/User'); // adjust if needed
 
-// Signup route
+// POST /api/auth/signup
 router.post('/signup', async (req, res) => {
   const { email, password } = req.body;
-  try {
-    const user = new User({ email, password });
-    await user.save();
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '1d',
-    });
+  console.log('Signup Request Body:', req.body); // <== 🔍 Debug
 
-    res.status(201).json({ token, email: user.email });
-  } catch (err) {
-    res.status(400).json({ message: 'Signup failed', error: err.message });
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' });
   }
-});
 
-// Login route
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
   try {
-    const user = await User.findOne({ email });
-    if (!user || user.password !== password) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = await User.create({ email, password: hashedPassword });
+
+    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
       expiresIn: '1d',
     });
 
-    res.status(200).json({ token, email: user.email });
+    res.status(201).json({ token, email: newUser.email });
   } catch (err) {
-    res.status(500).json({ message: 'Login failed', error: err.message });
+    console.error('Signup error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
